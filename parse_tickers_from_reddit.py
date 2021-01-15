@@ -68,7 +68,7 @@ with open("curated_stock_tickers.txt") as f:
 # Write out the data in .json format for consumption by the frontend
 json_data = {"posts": post_count_in_last_day, "comments": comments_in_last_day, "time": str(datetime.datetime.now()),
              "data": (sorted(dictionary.items(), key=lambda x: x[1], reverse=True))}
-fp = open('reddit_most_mentioned_stocks.json', 'w')
+fp = open('reddit_most_mentioned_stocks.json', 'w+')
 fp.write(json.dumps(json_data))
 fp.close()
 
