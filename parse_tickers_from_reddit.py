@@ -51,6 +51,7 @@ for post in posts_in_last_day:
     post.comments.replace_more(limit=1)
     for comment in post.comments.list():
         if comment.body:
+            comments_in_last_day = comments_in_last_day + 1
             text_blob = text_blob + comment.body
 
 # The text_blob is an amalgamation of all posts and comments from the last 24 hours
