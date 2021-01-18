@@ -3,9 +3,11 @@ import praw
 import json
 import time
 import datetime
+from datetime import timezone
 import re
 import boto3
 import os
+import pytz
 
 
 # Function to find all occurrences of the stock ticker (or $ticker) with case ignored. Returns the number of occurrences
@@ -65,8 +67,14 @@ with open("curated_stock_tickers.txt") as f:
         if occurrences > 0:
             dictionary[line] = occurrences
 
+# Get the current time and format it accordingly
+current_time = datetime.datetime.now(timezone.utc)
+est = pytz.timezone('US/Eastern')
+date_format = "%d %B %I:%M %p"
+
 # Write out the data in .json format for consumption by the frontend
-json_data = {"posts": post_count_in_last_day, "comments": comments_in_last_day, "time": str(datetime.datetime.now()),
+json_data = {"posts": post_count_in_last_day, "comments": comments_in_last_day,
+             "time": current_time.astimezone(est).strftime(date_format),
              "data": (sorted(dictionary.items(), key=lambda x: x[1], reverse=True))}
 fp = open('reddit_most_mentioned_stocks.json', 'w+')
 fp.write(json.dumps(json_data))
