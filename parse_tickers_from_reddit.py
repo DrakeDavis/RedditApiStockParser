@@ -92,6 +92,6 @@ s3_client = boto3.client('s3',
                          aws_secret_access_key=os.environ['S3_SECRET'])
 
 # Upload the .json file to S3. Making it public so anyone can use it.
-s3_client.upload_file(subreddit_name + '_most_mentioned_stocks.json', subreddit_name+ '-pop-index',
+s3_client.upload_file(subreddit_name + '_most_mentioned_stocks.json', 'wsb-pop-index',
                         subreddit_name + 'PopIndex.json', ExtraArgs={'ContentType': "application/json",
                         'ACL': 'public-read'})
