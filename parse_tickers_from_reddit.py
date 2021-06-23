@@ -8,7 +8,7 @@ import re
 import boto3
 import os
 import pytz
-
+import sys
 
 # Function to find all occurrences of the stock ticker (or $ticker) with case ignored. Returns the number of occurrences
 def find_occurrences_of_stock_ticker(arg_ticker, arg_text_to_search):
@@ -33,8 +33,11 @@ reddit = praw.Reddit(
 posts_in_last_day = []
 text_blob = ''
 
+# Retrieve subreddit name from terminal argument
+subreddit_name = str(sys.argv[1])
+
 # Get all posts from subreddit in the last 24 hours (limit is 900, but no 24 period has reached that number)
-for post in reddit.subreddit("wallstreetbets").new(limit=900):
+for post in reddit.subreddit(subreddit_name).new(limit=900):
     post_title = post.title
     post_creation_epoch_time = post.created - 60 * 60 * 8  # subtracting 8 hours due to timezone
     current_epoch_time = int(time.time())
@@ -76,7 +79,7 @@ date_format = "%d %B %I:%M %p"
 json_data = {"posts": post_count_in_last_day, "comments": comments_in_last_day,
              "time": current_time.astimezone(est).strftime(date_format),
              "data": (sorted(dictionary.items(), key=lambda x: x[1], reverse=True))}
-fp = open('reddit_most_mentioned_stocks.json', 'w+')
+fp = open(subreddit_name + '_most_mentioned_stocks.json', 'w+')
 fp.write(json.dumps(json_data))
 fp.close()
 
@@ -89,5 +92,6 @@ s3_client = boto3.client('s3',
                          aws_secret_access_key=os.environ['S3_SECRET'])
 
 # Upload the .json file to S3. Making it public so anyone can use it.
-s3_client.upload_file('reddit_most_mentioned_stocks.json', 'wsb-pop-index', 'wsbPopIndex.json',
-                      ExtraArgs={'ContentType': "application/json", 'ACL': 'public-read'})
+s3_client.upload_file(subreddit_name + '_most_mentioned_stocks.json', subreddit_name+ '-pop-index',
+                        subreddit_name + 'PopIndex.json', ExtraArgs={'ContentType': "application/json",
+                        'ACL': 'public-read'})
