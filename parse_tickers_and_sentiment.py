@@ -53,8 +53,8 @@ posts_in_last_day = []
 
 log(f"Fetching posts from r/{subreddit_name}...")
 post_fetch_count = 0
-# Get all posts from subreddit in the last 24 hours (limit is 900, but no 24 period has reached that number)
-for post in reddit.subreddit(subreddit_name).new(limit=900):
+# Get all posts from subreddit in the last 24 hours (or the last 50 posts, I dont want to hammer reddits API)
+for post in reddit.subreddit(subreddit_name).new(limit=50):
     post_creation_epoch_time = post.created_utc
     current_epoch_time = int(time.time())
     age_of_post_in_hours = (current_epoch_time - post_creation_epoch_time) / 60 / 60
@@ -98,6 +98,7 @@ def process_text_segment(text):
 
 
 # Process all posts and their comments
+post_metadata = []
 for i, post in enumerate(posts_in_last_day):
     log(f"  Post {i + 1}/{post_count_in_last_day}: '{post.title[:60]}'")  # noqa
 
@@ -105,11 +106,19 @@ for i, post in enumerate(posts_in_last_day):
     process_text_segment(post.title)
     process_text_segment(post.selftext)
 
-    post.comments.replace_more(limit=32)
+    post_comment_count = 0
+    post.comments.replace_more(limit=100)
     for comment in post.comments.list():
         if comment.body:
             comments_in_last_day += 1
+            post_comment_count += 1
             process_text_segment(comment.body)
+
+    post_metadata.append({
+        "title": post.title,
+        "url": "https://www.reddit.com" + post.permalink,
+        "comments_scanned": post_comment_count
+    })
 
 log(f"Fetched {comments_in_last_day} comments. Post breakdown:")
 for post in posts_in_last_day:
@@ -138,17 +147,25 @@ est = pytz.timezone('US/Eastern')
 date_format = "%d %B %I:%M %p"
 
 # Write out the data in .json format for consumption by the frontend
+post_metadata.sort(key=lambda x: x["comments_scanned"], reverse=True)
+api_calls_used = reddit.auth.limits.get('used', 'unknown')
 json_data = {
     "posts": post_count_in_last_day,
     "comments": comments_in_last_day,
     "time": current_time.astimezone(est).strftime(date_format),
     "data": output_data,
+    "metadata": {
+        "posts": post_metadata,
+        "total_tickers_found": len(output_data),
+        "api_calls_used": api_calls_used
+    }
 }
 output_filename = subreddit_name + '_most_mentioned_stocks_sentiment.json'
 with open(output_filename, 'w+') as fp:
     fp.write(json.dumps(json_data, indent=2))
 
 log(f"JSON written with {len(output_data)} tickers -> {output_filename}")
+log(f"Total Reddit API calls made this run: {api_calls_used}")
 
 # Open connection to AWS S3 bucket
 s3 = boto3.resource('s3',
@@ -157,9 +174,8 @@ s3 = boto3.resource('s3',
 s3_client = boto3.client('s3',
                          aws_access_key_id=os.environ['S3_KEY'],
                          aws_secret_access_key=os.environ['S3_SECRET'])
-
-# Upload the .json file to S3. Making it public so anyone can use it.
 log("Done.")
+# Upload the .json file to S3. Making it public so anyone can use it.
 #s3_client.upload_file(output_filename, 'wsb-pop-index',
 #                       subreddit_name + 'SentimentIndex.json', ExtraArgs={'ContentType': "application/json",
 #                       'ACL': 'public-read'})
